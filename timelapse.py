@@ -79,10 +79,11 @@ def finish_multipart_upload(bucket, key, parts, multipart_upload_id, client):
 @click.option('--num-frames', default=None, type=int)
 @click.option('--colors', default=256)
 @click.option('--show-progress/--no-progress', default=True)
+@click.option('--scale', default=None, type=float)
 @click.argument('outfile')
 @click.argument('indir')
 def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, outfile, indir,
-             show_progress):
+             show_progress, scale):
     s3_client = None
     if s3_in or s3_out:
         s3_client = get_s3_client()
@@ -126,6 +127,9 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, ou
                 if skip_dark_frames and is_dark_image(cropped_image):
                     continue
                 jpeg_bytes = io.BytesIO()
+                if scale:
+                    cropped_image = cropped_image.resize(
+                        [int(d * scale) for d in cropped_image.size])
                 cropped_image.save(jpeg_bytes, format='jpeg')
             jpeg_bytes.seek(0)
             image = imageio.imread(jpeg_bytes, format='jpeg-pil')
@@ -139,7 +143,7 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, ou
                 outfile.seek(0)
                 part_number = part_number + 1
             if not show_progress:
-                click.echo(f'Processing {filename}')
+                click.echo(f'Processed {filename}')
     if s3_out:
         click.echo('Uploading the last part, which may be smaller than 5MB')
         outfile.seek(0)
@@ -149,6 +153,7 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, ou
         outfile.truncate()
         finish_multipart_upload(outbucket, outkey, upload_parts, multipart_upload_id, s3_client)
         s3_client.pub_object_acl(Bucket=outbucket, Key=outkey, ACL='public-read')
+
 
 if __name__ == '__main__':
     generate()
