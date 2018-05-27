@@ -152,7 +152,7 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, ou
         upload_parts.append(part)
         outfile.truncate()
         finish_multipart_upload(outbucket, outkey, upload_parts, multipart_upload_id, s3_client)
-        s3_client.pub_object_acl(Bucket=outbucket, Key=outkey, ACL='public-read')
+        s3_client.put_object_acl(Bucket=outbucket, Key=outkey, ACL='public-read')
 
 
 if __name__ == '__main__':
