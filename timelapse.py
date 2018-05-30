@@ -38,7 +38,7 @@ def local_image_files(indir, sort):
 
 
 def s3_image_files(indir, sort, client):
-    return sorted([o['Key'] for o in client.list_objects(Bucket='plantcam')['Contents']], key=sort)
+    return sorted([o['Key'] for o in client.list_objects(Bucket=indir)['Contents']], key=sort)
 
 
 def open_from_s3(bucket, key, client):
@@ -77,12 +77,13 @@ def finish_multipart_upload(bucket, key, parts, multipart_upload_id, client):
 @click.option('--small/--not-small', default=False)
 @click.option('--skip-dark-frames/--keep-dark-frames', default=True)
 @click.option('--num-frames', default=None, type=int)
+@click.option('--offset', default=0, type=int)
 @click.option('--colors', default=256)
 @click.option('--show-progress/--no-progress', default=True)
 @click.option('--scale', default=None, type=float)
 @click.argument('outfile')
 @click.argument('indir')
-def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, outfile, indir,
+def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, colors, outfile, indir,
              show_progress, scale):
     s3_client = None
     if s3_in or s3_out:
@@ -90,10 +91,9 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, ou
     if s3_in:
         image_files = s3_image_files(indir, lambda f: int(f[:-4]), s3_client)
     else:
-        s3_client = None
         image_files = local_image_files(indir, lambda f: int(f[len(indir) + 1:-4]))
-    if num_frames:
-        image_files = image_files[:num_frames]
+    num_frames = num_frames or len(image_files)
+    image_files = image_files[offset:num_frames]
 
     click.echo(f'{len(image_files)} files...')
     click.echo(f'FPS of gif: {fps}')
@@ -122,15 +122,20 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, ou
                 file_obj = open_from_s3(indir, filename, s3_client)
             else:
                 file_obj = open(filename, 'rb')
-            with Image.open(file_obj) as fullsize_image:
-                cropped_image = fullsize_image.crop(CROP_POINTS)
-                if skip_dark_frames and is_dark_image(cropped_image):
-                    continue
-                jpeg_bytes = io.BytesIO()
-                if scale:
-                    cropped_image = cropped_image.resize(
-                        [int(d * scale) for d in cropped_image.size])
-                cropped_image.save(jpeg_bytes, format='jpeg')
+            try:
+                with Image.open(file_obj) as fullsize_image:
+                    cropped_image = fullsize_image.crop(CROP_POINTS)
+                    if skip_dark_frames and is_dark_image(cropped_image):
+                        continue
+                    jpeg_bytes = io.BytesIO()
+                    if scale:
+                        cropped_image = cropped_image.resize(
+                            [int(d * scale) for d in cropped_image.size])
+                    cropped_image.save(jpeg_bytes, format='jpeg')
+            except OSError as e:
+                if not show_progress:
+                    click.echo(f'ERROR with {filename}: {e}. Skipping this image.')
+                continue
             jpeg_bytes.seek(0)
             image = imageio.imread(jpeg_bytes, format='jpeg-pil')
             writer.append_data(image)
@@ -139,7 +144,7 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, ou
                 part = upload_file_part(outfile, outbucket, outkey, part_number,
                                         multipart_upload_id, s3_client)
                 upload_parts.append(part)
-                outfile.truncate()
+                outfile.truncate(0)
                 outfile.seek(0)
                 part_number = part_number + 1
             if not show_progress:
@@ -150,7 +155,7 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, colors, ou
         part = upload_file_part(outfile, outbucket, outkey, part_number, multipart_upload_id,
                                 s3_client)
         upload_parts.append(part)
-        outfile.truncate()
+        outfile.truncate(0)
         finish_multipart_upload(outbucket, outkey, upload_parts, multipart_upload_id, s3_client)
         s3_client.put_object_acl(Bucket=outbucket, Key=outkey, ACL='public-read')
 
