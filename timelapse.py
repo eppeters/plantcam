@@ -54,8 +54,6 @@ def s3_image_files(indir, sort, client):
     objects = s3_recursively_list_image_objects(indir, client)
     object_keys = [o['Key'] for o in objects]
     sorted_object_keys = sorted(object_keys, key=sort)
-    import ipdb
-    ipdb.set_trace()
     return sorted_object_keys
 
 
@@ -100,11 +98,11 @@ def finish_multipart_upload(bucket, key, parts, multipart_upload_id, client):
 @click.option('--show-progress/--no-progress', default=True)
 @click.option('--scale', default=None, type=float)
 @click.option(
-    '--crop', default='722,1230,1812,2048', help="Crop points as expected by PIL's Image.crop")
+    '--crop-points', default=(722, 1230, 1812, 2048), help="Crop points as expected by PIL's Image.crop", type=int, nargs=4)
 @click.argument('outfile')
 @click.argument('indir')
 def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, colors, outfile,
-             indir, show_progress, scale, crop):
+             indir, show_progress, scale, crop_points):
     s3_client = None
     if s3_in or s3_out:
         s3_client = get_s3_client()
@@ -114,8 +112,6 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, co
         image_files = local_image_files(indir, lambda f: int(f[len(indir) + 1:-4]))
     num_frames = num_frames or len(image_files)
     image_files = image_files[offset:num_frames]
-
-    crop_points = [int(x) for x in crop.split(',')]
 
     click.echo(f'{len(image_files)} files...')
     click.echo(f'FPS of gif: {fps}')
