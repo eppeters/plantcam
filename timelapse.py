@@ -10,7 +10,6 @@ import progressbar
 from PIL import Image, ImageStat
 
 MINIMUM_S3_MULTIPART_PART_SIZE_IN_BYTES = 1024 * 1024 * 5
-CROP_POINTS = (722, 1230, 1812, 2048)
 DARK_BAND_SUM_MAX = 50
 
 band_median_sums = []
@@ -37,8 +36,27 @@ def local_image_files(indir, sort):
     return sorted(glob.glob(f'{indir}/*.jpg'), key=sort)
 
 
+def s3_recursively_list_image_objects(indir, client, objects=None, continuation_token=None):
+    if not objects:
+        objects = []
+        response = client.list_objects_v2(Bucket=indir)
+    else:
+        response = client.list_objects_v2(Bucket=indir, ContinuationToken=continuation_token)
+
+    if response['IsTruncated']:
+        return objects + s3_recursively_list_image_objects(indir, client, response['Contents'],
+                                                           response['NextContinuationToken'])
+
+    return objects + response['Contents']
+
+
 def s3_image_files(indir, sort, client):
-    return sorted([o['Key'] for o in client.list_objects(Bucket=indir)['Contents']], key=sort)
+    objects = s3_recursively_list_image_objects(indir, client)
+    object_keys = [o['Key'] for o in objects]
+    sorted_object_keys = sorted(object_keys, key=sort)
+    import ipdb
+    ipdb.set_trace()
+    return sorted_object_keys
 
 
 def open_from_s3(bucket, key, client):
@@ -81,10 +99,12 @@ def finish_multipart_upload(bucket, key, parts, multipart_upload_id, client):
 @click.option('--colors', default=256)
 @click.option('--show-progress/--no-progress', default=True)
 @click.option('--scale', default=None, type=float)
+@click.option(
+    '--crop', default='722,1230,1812,2048', help="Crop points as expected by PIL's Image.crop")
 @click.argument('outfile')
 @click.argument('indir')
-def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, colors, outfile, indir,
-             show_progress, scale):
+def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, colors, outfile,
+             indir, show_progress, scale, crop):
     s3_client = None
     if s3_in or s3_out:
         s3_client = get_s3_client()
@@ -94,6 +114,8 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, co
         image_files = local_image_files(indir, lambda f: int(f[len(indir) + 1:-4]))
     num_frames = num_frames or len(image_files)
     image_files = image_files[offset:num_frames]
+
+    crop_points = [int(x) for x in crop.split(',')]
 
     click.echo(f'{len(image_files)} files...')
     click.echo(f'FPS of gif: {fps}')
@@ -124,7 +146,7 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, co
                 file_obj = open(filename, 'rb')
             try:
                 with Image.open(file_obj) as fullsize_image:
-                    cropped_image = fullsize_image.crop(CROP_POINTS)
+                    cropped_image = fullsize_image.crop(crop_points)
                     if skip_dark_frames and is_dark_image(cropped_image):
                         continue
                     jpeg_bytes = io.BytesIO()
