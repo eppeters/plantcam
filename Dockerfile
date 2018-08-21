@@ -4,6 +4,7 @@ WORKDIR /app
 RUN apk --no-cache --update-cache add gcc freetype-dev libpng-dev openblas-dev build-base
 RUN apk add jpeg-dev zlib-dev freetype-dev lcms2-dev openjpeg-dev tiff-dev tk-dev tcl-dev
 COPY requirements.txt /app/
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt && \
+  imageio_download_bin ffmpeg
 COPY timelapse.py /app/
 ENTRYPOINT ["python", "timelapse.py"]
