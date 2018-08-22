@@ -89,20 +89,19 @@ def finish_multipart_upload(bucket, key, parts, multipart_upload_id, client):
 @click.command()
 @click.option('--s3-in/--local-in', default=False)
 @click.option('--s3-out/--local-out', default=False)
-@click.option('--fps', default=30)
-@click.option('--small/--not-small', default=False)
+@click.option('--fps', default=10)
 @click.option('--skip-dark-frames/--keep-dark-frames', default=True)
 @click.option('--num-frames', default=None, type=int)
 @click.option('--offset', default=0, type=int)
-@click.option('--colors', default=256)
 @click.option('--show-progress/--no-progress', default=True)
 @click.option('--scale', default=None, type=float)
+@click.option('--quality', default=5)
 @click.option(
     '--crop-points', default=(722, 1230, 1812, 2048), help="Crop points as expected by PIL's Image.crop", type=int, nargs=4)
 @click.argument('outfile')
 @click.argument('indir')
-def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, colors, outfile,
-             indir, show_progress, scale, crop_points):
+def generate(s3_in, s3_out, fps, skip_dark_frames, num_frames, offset, outfile,
+             indir, show_progress, scale, quality, crop_points):
     s3_client = None
     if s3_in or s3_out:
         s3_client = get_s3_client()
@@ -114,7 +113,7 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, co
     image_files = image_files[offset:num_frames]
 
     click.echo(f'{len(image_files)} files...')
-    click.echo(f'FPS of gif: {fps}')
+    click.echo(f'FPS: {fps}')
 
     if show_progress:
         image_files = progressbar.progressbar(image_files)
@@ -129,9 +128,8 @@ def generate(s3_in, s3_out, fps, small, skip_dark_frames, num_frames, offset, co
         outkey = outfile.split('/')[-1]
         outfile = io.BytesIO()
         multipart_upload_id = new_multipart_upload_id(outbucket, outkey, s3_client)
-    with imageio.get_writer(
-            outfile, mode='I', format='gif-pil', fps=fps, subrectangles=small,
-            palettesize=colors) as writer:
+    with imageio.get_writer(outfile, mode='I', format='ffmpeg', ffmpeg_log_level='verbose',
+                            quality=quality) as writer:
         part_number = 1
         for filename in image_files:
             if not show_progress:
