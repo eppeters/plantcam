@@ -1,6 +1,7 @@
 import glob
 import io
 import os
+from itertools import islice
 
 import boto3
 import click
@@ -91,6 +92,7 @@ def finish_multipart_upload(bucket, key, parts, multipart_upload_id, client):
 @click.option('--s3-out/--local-out', default=False)
 @click.option('--fps', default=10)
 @click.option('--skip-dark-frames/--keep-dark-frames', default=True)
+@click.option('--step', default=1, help='Process every "stepth" frame only')
 @click.option('--num-frames', default=None, type=int)
 @click.option('--offset', default=0, type=int)
 @click.option('--show-progress/--no-progress', default=True)
@@ -100,7 +102,7 @@ def finish_multipart_upload(bucket, key, parts, multipart_upload_id, client):
     '--crop-points', default=(722, 1230, 1812, 2048), help="Crop points as expected by PIL's Image.crop", type=int, nargs=4)
 @click.argument('outfile')
 @click.argument('indir')
-def generate(s3_in, s3_out, fps, skip_dark_frames, num_frames, offset, outfile,
+def generate(s3_in, s3_out, fps, skip_dark_frames, step, num_frames, offset, outfile,
              indir, show_progress, scale, quality, crop_points):
     s3_client = None
     if s3_in or s3_out:
@@ -131,7 +133,7 @@ def generate(s3_in, s3_out, fps, skip_dark_frames, num_frames, offset, outfile,
     with imageio.get_writer(outfile, mode='I', format='ffmpeg', ffmpeg_log_level='verbose',
                             quality=quality) as writer:
         part_number = 1
-        for filename in image_files:
+        for filename in islice(image_files, None, None, step):
             if not show_progress:
                 click.echo(f'Processing {filename}')
             if s3_in:
