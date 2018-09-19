@@ -1,0 +1,8 @@
+version: "3"
+services:
+  timelapse:
+    build: .
+    image: plantcam
+    tmpfs: /app/temp
+    env_file: .env
+    command: --s3-in --s3-out --fps 60 plants.eddiepeters.me/docker-compose-out.mpeg plantcam
