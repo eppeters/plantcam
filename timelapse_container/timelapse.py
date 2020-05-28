@@ -1,6 +1,7 @@
 import glob
 import io
 import os
+import sys
 from itertools import islice
 from pathlib import Path
 
@@ -54,6 +55,9 @@ def s3_recursively_list_image_objects(indir, client, objects=None, continuation_
 
 def s3_image_files(indir, sort, client):
     objects = s3_recursively_list_image_objects(indir, client)
+    if not objects:
+        click.secho(f'No objects found in input location: {indir}.', color='red')
+        sys.exit(1)
     object_keys = [o['Key'] for o in objects]
     sorted_object_keys = sorted(object_keys, key=sort)
     return sorted_object_keys
