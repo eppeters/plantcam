@@ -1,0 +1,14 @@
+---
+
+all:
+  hosts:
+    greengrass-timelapse-0-onprem:
+      ansible_host: 192.168.86.31
+      ansible_user: pi
+  children:
+    greengrass:
+      hosts:
+        greengrass-timelapse-0-onprem
+    onprem:
+      hosts:
+        greengrass-timelapse-0-onprem
