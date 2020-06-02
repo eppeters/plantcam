@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  Build AWS IoT Greengrass resources required for producing a timelapse from
+  a Raspberry Pi camera.
+Metadata: 
+
+Parameters: 
+  ProjectName:
+    Description: >
+      A human-readable name that will be used in resources to
+      distinguish them from other projects' resources created with this
+      template. (e.g. if you are making a timelapse of weather in your
+      back yard, you might use "backyard-weather" for this, and resources
+      would be named things like "gg-core-backyard-weather").
+    Type: String
+
+Mappings: 
+
+Conditions: 
+
+Resources:
+  GreengrassGroup:
+    Type: AWS::Greengrass::Group
+    Properties:
+      Name: !Sub "group-timelapse-{ProjectName}"
+      RoleArn: !GetAtt GreengrassResourceRole.Arn
+  GreengrassSnapshotRole:
+    # Role for deployed Lambda functions to a Greengrass core to call other
+    # AWS services directly
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: greengrass.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - iot:*
+                Resource: "*"
+
+
+  
+Outputs:
