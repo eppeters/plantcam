@@ -44,7 +44,7 @@ PyNaCl==1.4.0
 pyrsistent==0.16.0
 python-dateutil==2.8.1
 python-utils==2.4.0
-PyYAML==5.3.1
+PyYAML==5.4
 requests==2.23.0
 rsa==4.0
 s3transfer==0.3.3
