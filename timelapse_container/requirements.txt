@@ -23,7 +23,7 @@ pyasn1==0.4.3
 Pygments==2.2.0
 python-dateutil==2.7.3
 python-utils==2.3.0
-PyYAML==3.12
+PyYAML==5.4
 rsa==3.4.2
 s3transfer==0.1.13
 simplegeneric==0.8.1
