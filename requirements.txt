@@ -29,7 +29,7 @@ jmespath==0.10.0
 jsonschema==3.2.0
 MarkupSafe==1.1.1
 numpy==1.18.4
-paramiko==2.7.1
+paramiko==2.10.1
 parso==0.7.0
 pexpect==4.8.0
 pickleshare==0.7.5
